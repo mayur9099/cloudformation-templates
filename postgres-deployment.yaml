@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  AWS CloudFormation template to setup postgres.
+Parameters:
+  Env:
+    Type: String
+    Description: Environment
+    AllowedValues :
+      - dev
+      - stage
+      - prod
+  Pod:
+    Type: String
+    Description: Pod Name
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+    Description: Customer Vpc Id
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Customer Vpc Id
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet Id for zookeeper
+
+Resources:
+  DbParampg01:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: !Sub 'Postgres Parameter for ${Env}-${Pod}'
+      Family: postgres9.6
+      Parameters:
+        autovacuum: "1"
+        autovacuum_analyze_scale_factor: "0.005"
+        autovacuum_analyze_threshold: "10000"
+        autovacuum_max_workers: "35"
+        autovacuum_naptime: "2"
+        autovacuum_vacuum_cost_limit: "7000"
+        autovacuum_vacuum_scale_factor: "0.01"
+        autovacuum_vacuum_threshold: "10000"
+        log_min_duration_statement: "600"
+        maintenance_work_mem: "131072"
+        wal_keep_segments: "16"
+        work_mem: "51200"
+      Tags:
+      - Key: Name
+        Value: !Sub '${Env}-${Pod}-params-pg-01'
+      - Key: QName
+        Value: !Sub '${Env}-${Pod}-params-pg-01.${Domain}'
+  DbPgSng01:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub 'Postgres Subnet group for ${Env}-${Pod}'
+      SubnetIds: !Ref Subnets
+      Tags:
+      - Key: Name
+        Value: !Sub '${Env}-${Pod}-sng-pg-01'
+        Value: !Sub '${Env}-${Pod}-sng-pg-01'
+      - Key: QName
+        Value: !Sub '${Env}-${Pod}-sng-pg-01.${Domain}'
+  DbPg01:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+    - DbParampg01
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${Env}-${Pod}-pg-01'
+      DBName: postgres
+      AllocatedStorage: 1000
+      Iops: 10000
+      DBInstanceClass: db.r4.2xlarge
+      BackupRetentionPeriod: '1'
+      AllowMajorVersionUpgrade: 'false'
+      AutoMinorVersionUpgrade: 'false'
+      MultiAZ: 'false'
+      CopyTagsToSnapshot: 'true'
+      StorageEncrypted: 'true'
+      Engine: postgres
+      EngineVersion: '9.6'
+      MasterUsername: postgres
+      MasterUserPassword: c3postgres
+      DBSubnetGroupName: !Ref DbPgSng01
+      DBParameterGroupName: !Ref DbParampg01
+      VPCSecurityGroups: !Ref SecurityGroupIds
+      KmsKeyId: !Ref KMSKey
+      Tags:
+      - Key: Name
+        Value: !Sub '${Env}-${Pod}-pg-01'
+      - Key: QName
+        Value: !Sub '${Env}-${Pod}-pg-01.${Domain}'
